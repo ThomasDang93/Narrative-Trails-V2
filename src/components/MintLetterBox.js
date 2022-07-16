@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useWeb3React } from "@web3-react/core";
 import { InjectedConnector } from "@web3-react/injected-connector";
-import './components.css';
-import LetterBoxingABI from "./LetterBoxing.json";
+import '../components.css';
+import LetterBoxingABI from "../util/LetterBoxing.json";
 import fleek from '@fleekhq/fleek-storage-js';  
-import * as  constants from './constants.js';
-
+import * as  constants from '../util/constants.js';
+import { ipfsUpload } from '../util/nft_operations.js';
 
 const DEPLOYED_CONTRACT_ADDRESS = constants.DEPLOYED_CONTRACT_ADDRESS;
 
@@ -34,88 +34,38 @@ function MintLetterBox() {
         selectedAddress: "",
     });
     const [file, setFile] = useState({});
+
     const handleSubmit = async(event) => {
         event.preventDefault();
         if(state.name !== "" && state.lattitude !== "" && state.longitude !== "" && 
             state.description !== "" && state.city !== "" && state.state !== ""
             && state.country !== "" && state.zip !== "" && state.isLetterBox === true) {
-            const formData = new FormData();
-            formData.append('File', file);
-            console.log(formData.get('File'));
-            const pictureResult = await fleek.upload( {
-                apiKey: process.env.REACT_APP_FLEEK_API_KEY,
-                apiSecret: process.env.REACT_APP_FLEEK_API_SECRET,
-                key: `narrativetrails/letterbox/` + uuid(),
-                data: formData.get('File'),
-              });
+            let metaDataResult = await ipfsUpload({
+                fleek: fleek,
+                file: file,
+                imagePath: constants.LETTERBOX_IMAGE_PATH,
+                metadataPath: constants.LETTERBOX_METADATA_PATH,
+                state: state
+            });
+            const contract = new ethers.Contract(DEPLOYED_CONTRACT_ADDRESS, LetterBoxingABI["abi"], provider.getSigner());
 
-            console.log(pictureResult);
-            let metaData = {
-                name: state.name,
-                description: state.description,
-                media_uri_image: pictureResult.publicUrl,
-                properties: {
-                    lattitude: state.lattitude,
-                    longitude: state.longitude,
-                    city: state.city,
-                    state: state.state,
-                    country: state.country,
-                    zip: state.zip,
-                    isLetterBox: state.isLetterBox
-                }
-            };
-
-            const metaDataResult = await fleek.upload( {
-                apiKey: process.env.REACT_APP_FLEEK_API_KEY,
-                apiSecret: process.env.REACT_APP_FLEEK_API_SECRET,
-                key: `narrativetrails/letterbox-metadata/` + uuid(),
-                data: JSON.stringify(metaData),
-              });
-            console.log(metaDataResult);
-            const signer = provider.getSigner();
-            const contractAddress = DEPLOYED_CONTRACT_ADDRESS;
-            const contract = new ethers.Contract(contractAddress, LetterBoxingABI["abi"], signer);
             contract.mintLetterbox(account, metaDataResult.publicUrl);
-
         } else {
             alert("Please enter value for all fields");
         }
     }
 
-    function uuid() {
-        var temp_url = URL.createObjectURL(new Blob());
-        var uuid = temp_url.toString();
-        URL.revokeObjectURL(temp_url);
-        return uuid.substr(uuid.lastIndexOf('/') + 1); // remove prefix (e.g. blob:null/, blob:www.test.com/, ...)
-     }
-
     function handleFileChange(event) {
         setFile(event.target.files[0]);
-    }
-    function handleLattitudeChange(event) {
-        setState({...state, lattitude: event.target.value});
-    }
-    function handleLongitudeChange(event) {
-        setState({...state, longitude: event.target.value});
-    }
-    function handleCityChange(event) {
-        setState({...state, city: event.target.value});
-    }
-    function handleStateChange(event) {
-        setState({...state, state: event.target.value});
-    }
-    function handleCountryChange(event) {
-        setState({...state, country: event.target.value});
-    }
-    function handleZipChange(event) {
-        setState({...state, zip: event.target.value});
-    }
-    function handleNameChange(event) {
-        setState({...state, name: event.target.value});
-    }
-    function handleDescriptionChange(event) {
-        setState({...state, description: event.target.value});
-    }
+    };
+
+    function handleChange(event) {
+        let change = {
+            ...state
+        };
+        change[event.target.name] = event.target.value;
+        setState(change);
+    };
     async function connect() {
         if (typeof window.ethereum !== "undefined") {
           try {
@@ -125,41 +75,13 @@ function MintLetterBox() {
             console.log(e);
           }
         }
-      }
+    };
 
-      async function execute() {
-        if (active) {
-          console.log(provider.getSigner())
-          const signer = provider.getSigner();
-          const contractAddress = DEPLOYED_CONTRACT_ADDRESS;
-          const contract = new ethers.Contract(contractAddress, LetterBoxingABI["abi"], signer);
-          try{
-            let userStamp = await contract.stampHeldBy(account);
-            userStamp = userStamp.toNumber();
-            console.log("userStamp: ", userStamp);
-            let letterBoxList = await contract.letterboxList();
-            let letterBoxId = letterBoxList[0];
-            let letterboxResources = await contract.getFullResources(letterBoxId.toNumber());
-            console.log('letterbox resource count(before): ', letterboxResources.length);
-            await contract.stampToLetterbox(account, letterBoxId.toNumber(), true);
-            await contract.letterboxToStamp(account, letterBoxId.toNumber());
-            letterboxResources = await contract.getFullResources(letterBoxId.toNumber());
-            console.log('letterbox resource count(after): ', letterboxResources.length);
-
-          } catch(error) {
-            console.log(error);
-          }
-            
-        } else {
-          console.log("Please install MetaMask");
-        }
-      }
-
-      useEffect(() => {
+    useEffect(() => {
         if (typeof window.ethereum !== "undefined") {
-          setHasMetamask(true);
+            setHasMetamask(true);
         }
-      });
+    });
     
     return (
         <div>
@@ -178,31 +100,30 @@ function MintLetterBox() {
             {active ? 
             <form onSubmit={handleSubmit}>
                 <h1>Plant a Letter Box</h1>
-                {/* <button onClick={() => execute()}>Execute</button>  */}
                 <div>&nbsp;</div>
                 <label htmlFor="letter-plant-name">Name:
-                    <input type="text" name="name" className="form-control" id="letter-plant-name" onChange={handleNameChange}/>
+                    <input type="text" name="name" className="form-control" id="letter-plant-name" onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-plant-description">Description:
-                    <textarea type="text" name="description" rows="4" cols="50"className="form-control" id="letter-plant-description" onChange={handleDescriptionChange}/>
+                    <textarea type="text" name="description" rows="4" cols="50"className="form-control" id="letter-plant-description" onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-plant-lattitude">Lattitude:
-                    <input type="text" name="lattitude" className="form-control" id="letter-plant-lattitude" onChange={handleLattitudeChange}/>
+                    <input type="text" name="lattitude" className="form-control" id="letter-plant-lattitude" onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-plant-longitude">Longitude:
-                    <input type="text" name="longitude" className="form-control" id="letter-plant-longitude" onChange={handleLongitudeChange}/>
+                    <input type="text" name="longitude" className="form-control" id="letter-plant-longitude" onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-plant-city">City:
-                    <input type="text" name="city" className="form-control" id="letter-plant-city"onChange={handleCityChange}/>
+                    <input type="text" name="city" className="form-control" id="letter-plant-city"onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-plant-state">State:
-                    <input type="text" name="state" className="form-control" id="letter-plant-state"onChange={handleStateChange}/>
+                    <input type="text" name="state" className="form-control" id="letter-plant-state"onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-plant-country">Country: 
-                    <input type="text" name="country" className="form-control" id="letter-plant-country"onChange={handleCountryChange}/>
+                    <input type="text" name="country" className="form-control" id="letter-plant-country"onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-plant-zip">Zip Code:
-                    <input type="text" name="zip" className="form-control" id="letter-plant-zip"onChange={handleZipChange}/>
+                    <input type="text" name="zip" className="form-control" id="letter-plant-zip"onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-plant-upload">Upload: 
                     <input type="file" className="form-control" id="letter-plant-upload"onChange={handleFileChange}/>
@@ -210,7 +131,6 @@ function MintLetterBox() {
                 <div>&nbsp;</div>
                 <button type="submit" className="btn btn-success">Mint</button>
             </form> : <h1 className="center">Connect Wallet</h1>}
-            
         </div>
     );
 }

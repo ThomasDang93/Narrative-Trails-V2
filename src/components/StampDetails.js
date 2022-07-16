@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useWeb3React } from "@web3-react/core";
 import { InjectedConnector } from "@web3-react/injected-connector";
-import './components.css';
-import LetterBoxingABI from "./LetterBoxing.json";
-import * as  constants from './constants.js';
+import '../components.css';
+import LetterBoxingABI from "../util/LetterBoxing.json";
+import * as  constants from '../util/constants.js';
 import StampResources from './StampResources.js';
 import { Card, CardImg, CardText, CardBody,
   CardTitle } from 'reactstrap';
@@ -39,8 +39,11 @@ function StampDetails () {
 
 
   useEffect(() => {
-    getStamp();
-  },[active])
+    if(active) {
+      getStamp();
+    }
+    
+  },[active]);
 
   useEffect(() => {
     if (typeof window.ethereum !== "undefined") {
@@ -49,7 +52,7 @@ function StampDetails () {
   });
 
   async function getStamp() {
-    const contract = connectContract();
+    const contract = new ethers.Contract(DEPLOYED_CONTRACT_ADDRESS, LetterBoxingABI["abi"], provider.getSigner());
     let userStamp = await contract.stampHeldBy(account); //returns tokenId
     userStamp = userStamp.toNumber();
     let userResources = await contract.getFullResources(userStamp); //returns array of resources
@@ -74,6 +77,7 @@ function StampDetails () {
         let letterBoxMeta = [];
         for(let i = 1; i < userResources.length; i++) {
           let resourceURI = userResources[i].metadataURI;
+          console.log("resource URI: ", resourceURI)
           await fetch(resourceURI)
               .then(response => response.json())
               .then(data => {
@@ -94,40 +98,34 @@ function StampDetails () {
         state: stampMetaData.state,
         zip: stampMetaData.zip,
         letterBoxList: letterBoxMeta
-    })
-}
-async function connect() {
-  if (typeof window.ethereum !== "undefined") {
-    try {
-      await activate(injected);
-      setHasMetamask(true);
-    } catch (e) {
-      console.log(e);
+    });
+  };
+  async function connect() {
+    if (typeof window.ethereum !== "undefined") {
+      try {
+        await activate(injected);
+        setHasMetamask(true);
+      } catch (e) {
+        console.log(e);
+      }
     }
-  }
-}
+  };
 
-function connectContract() {
-    const signer = provider.getSigner();
-    const contractAddress = DEPLOYED_CONTRACT_ADDRESS;
-    const contract = new ethers.Contract(contractAddress, LetterBoxingABI["abi"], signer);
-    return contract;
-  }
   return (
     <div>
         {console.log("State: ", state)}
         {console.log('State Context: ', state)}
-            {console.log('Account Context: ', account)}
-            {console.log('Account Active: ', active)}
-            {hasMetamask ? (
-                active ? (
-                <div className="top-right">Connected</div>
-                ) : (
-                    <button className="top-right" onClick={() => connect()}>Connect</button>
-                )
+        {console.log('Account Context: ', account)}
+        {console.log('Account Active: ', active)}
+        {hasMetamask ? (
+            active ? (
+            <div className="top-right">Connected</div>
             ) : (
-                <div className="top-right">Please Install Metamask</div>
-            )}
+                <button className="top-right" onClick={() => connect()}>Connect</button>
+            )
+        ) : (
+            <div className="top-right">Please Install Metamask</div>
+        )}
         <div className="center">
           <Card>
               <CardImg top width="100%" src={ state.src} alt="Card image cap" />

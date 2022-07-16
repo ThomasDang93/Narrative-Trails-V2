@@ -1,6 +1,4 @@
-import { Link } from 'react-router-dom';
-import { Card, CardImg, CardText, CardBody,
-  CardTitle, Button } from 'reactstrap';
+import { Card, CardImg} from 'reactstrap';
 function StampResources ({ letterbox }) {
   return (
     <div className="container">

@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useWeb3React } from "@web3-react/core";
 import { InjectedConnector } from "@web3-react/injected-connector";
-import './components.css';
-import LetterBoxingABI from "./LetterBoxing.json";
+import '../components.css';
+import LetterBoxingABI from "../util/LetterBoxing.json";
 import fleek from '@fleekhq/fleek-storage-js';  
-import * as  constants from './constants.js';
-import MyStamp from './MyStamp';
+import * as  constants from '../util/constants.js';
+import UserStamp from './UserStamp';
+import { ipfsUpload, getUserStamp } from '../util/nft_operations.js';
 
 const DEPLOYED_CONTRACT_ADDRESS = constants.DEPLOYED_CONTRACT_ADDRESS;
 
@@ -36,49 +37,24 @@ function MintStamp() {
         stampList: []
     });
     const [file, setFile] = useState({});
+
     const handleSubmit = async(event) => {
         event.preventDefault();
         if(handleValidation()) {
-            const formData = new FormData();
-            formData.append('File', file);
-            console.log(formData.get('File'));
-            const pictureResult = await fleek.upload( {
-                apiKey: process.env.REACT_APP_FLEEK_API_KEY,
-                apiSecret: process.env.REACT_APP_FLEEK_API_SECRET,
-                key: `narrativetrails/letterbox-stamp/` + uuid(),
-                data: formData.get('File'),
-              });
-
-            console.log(pictureResult);
-            let metaData = {
-                name: state.name,
-                description: state.description,
-                media_uri_image: pictureResult.publicUrl,
-                properties: {
-                    lattitude: state.lattitude,
-                    longitude: state.longitude,
-                    city: state.city,
-                    state: state.state,
-                    country: state.country,
-                    zip: state.zip,
-                    isLetterBox: state.isStamp
-                }
-            };
-
-            const metaDataResult = await fleek.upload( {
-                apiKey: process.env.REACT_APP_FLEEK_API_KEY,
-                apiSecret: process.env.REACT_APP_FLEEK_API_SECRET,
-                key: `narrativetrails/letterbox-stamp-metadata/` + uuid(),
-                data: JSON.stringify(metaData),
-              });
-            console.log(metaDataResult);
-            const contract = connectContract();
+            let metaDataResult = await ipfsUpload({
+                fleek: fleek,
+                file: file,
+                imagePath: constants.STAMP_IMAGE_PATH,
+                metadataPath: constants.STAMP_METADATA_PATH,
+                state: state
+            });
+            const contract = new ethers.Contract(DEPLOYED_CONTRACT_ADDRESS, LetterBoxingABI["abi"], provider.getSigner());
             contract.mintStamp(account, metaDataResult.publicUrl);
 
         } else {
             alert("Please enter value for mandatory fields");
         }
-    }
+    };
 
     function handleValidation() {
         let fields = state;
@@ -98,37 +74,24 @@ function MintStamp() {
             formIsValid = false;
             errors["type"] = "Cannot be empty";
         }
-        setState({ ...state, errors: errors });
+        setState({ 
+            ...state, 
+            errors: errors 
+        });
         return formIsValid;
-      }
+    };
 
     function handleFileChange(event) {
         setFile(event.target.files[0]);
-    }
-    function handleLattitudeChange(event) {
-        setState({...state, lattitude: event.target.value});
-    }
-    function handleLongitudeChange(event) {
-        setState({...state, longitude: event.target.value});
-    }
-    function handleCityChange(event) {
-        setState({...state, city: event.target.value});
-    }
-    function handleStateChange(event) {
-        setState({...state, state: event.target.value});
-    }
-    function handleCountryChange(event) {
-        setState({...state, country: event.target.value});
-    }
-    function handleZipChange(event) {
-        setState({...state, zip: event.target.value});
-    }
-    function handleNameChange(event) {
-        setState({...state, name: event.target.value});
-    }
-    function handleDescriptionChange(event) {
-        setState({...state, description: event.target.value});
-    }
+    };
+
+    function handleChange(event) {
+        let change = {
+            ...state
+        };
+        change[event.target.name] = event.target.value;
+        setState(change);
+    };
 
     async function connect() {
         if (typeof window.ethereum !== "undefined") {
@@ -139,60 +102,31 @@ function MintStamp() {
             console.log(e);
           }
         }
-      }
+    };
 
-      async function getNFTs() {
-          const contract = connectContract();
-          let userStamp = await contract.stampHeldBy(account); //returns tokenId
-          userStamp = userStamp.toNumber();
-          console.log("userStamp = ", userStamp);
-          let userResources = await contract.getFullResources(userStamp); //returns array of resources
-          let userJSON = userResources[0].metadataURI;
-          console.log("userJson = ", userJSON)
-          let stampList = [];
-          //get stamps
-          await fetch(userJSON)
-                .then(response => response.json())
-                .then(data => {
-                    stampList.push({
-                        id: userStamp,
-                        name: data.name,
-                        description: data.description,
-                        src: data.media_uri_image
-                    })
-                })
+    async function getNFTs() {
+        const contract = new ethers.Contract(DEPLOYED_CONTRACT_ADDRESS, LetterBoxingABI["abi"], provider.getSigner());
+        let stampList = await getUserStamp({
+            account: account,
+            contract: contract
+        });
         setState({
             ...state,
             stampList: stampList
         });
-      }
+    };
 
-      useEffect(() => {
+    useEffect(() => {
         if (typeof window.ethereum !== "undefined") {
-          setHasMetamask(true);
+            setHasMetamask(true);
         }
-      });
+    });
 
-      useEffect(() => {
+    useEffect(() => {
         if(active) {
             getNFTs();
         }
-      },[active === true])
-
-      function connectContract() {
-        const signer = provider.getSigner();
-        const contractAddress = DEPLOYED_CONTRACT_ADDRESS;
-        const contract = new ethers.Contract(contractAddress, LetterBoxingABI["abi"], signer);
-        return contract;
-      }
-
-      function uuid() {
-        var temp_url = URL.createObjectURL(new Blob());
-        var uuid = temp_url.toString();
-        URL.revokeObjectURL(temp_url);
-        return uuid.substr(uuid.lastIndexOf('/') + 1); // remove prefix (e.g. blob:null/, blob:www.test.com/, ...)
-     }
-      
+    },[active]);
     
     return (
         <div>
@@ -216,28 +150,28 @@ function MintStamp() {
                 <h1>Mint a Stamp</h1>
                 <div>&nbsp;</div>
                 <label htmlFor="letter-stamp-name">Name:
-                    <input type="text" name="name" className="form-control" id="letter-stamp-name" onChange={handleNameChange}/>
+                    <input type="text" name="name" className="form-control" id="letter-stamp-name" onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-stamp-description">Description:
-                    <textarea type="text" name="description" rows="4" cols="50"className="form-control" id="letter-stamp-description" onChange={handleDescriptionChange}/>
+                    <textarea type="text" name="description" rows="4" cols="50"className="form-control" id="letter-stamp-description" onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-stamp-lattitude">Lattitude:
-                    <input type="text" name="lattitude" className="form-control" id="letter-stamp-lattitude" onChange={handleLattitudeChange}/>
+                    <input type="text" name="lattitude" className="form-control" id="letter-stamp-lattitude" onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-stamp-longitude">Longitude:
-                    <input type="text" name="longitude" className="form-control" id="letter-stamp-longitude" onChange={handleLongitudeChange}/>
+                    <input type="text" name="longitude" className="form-control" id="letter-stamp-longitude" onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-stamp-city">City:
-                    <input type="text" name="city" className="form-control" id="letter-stamp-city"onChange={handleCityChange}/>
+                    <input type="text" name="city" className="form-control" id="letter-stamp-city"onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-stamp-state">State:
-                    <input type="text" name="state" className="form-control" id="letter-stamp-state"onChange={handleStateChange}/>
+                    <input type="text" name="state" className="form-control" id="letter-stamp-state"onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-stamp-country">Country: 
-                    <input type="text" name="country" className="form-control" id="letter-stamp-country"onChange={handleCountryChange}/>
+                    <input type="text" name="country" className="form-control" id="letter-stamp-country"onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-stamp-zip">Zip Code:
-                    <input type="text" name="zip" className="form-control" id="letter-stamp-zip"onChange={handleZipChange}/>
+                    <input type="text" name="zip" className="form-control" id="letter-stamp-zip"onChange={handleChange}/>
                 </label>
                 <label htmlFor="letter-stamp-upload">Upload: 
                     <input type="file" className="form-control" id="letter-stamp-upload"onChange={handleFileChange}/>
@@ -247,7 +181,7 @@ function MintStamp() {
                 <div>&nbsp;</div>
                 {<div>
                     <h2>Your Current Stamp</h2>
-                    <MyStamp stamp={state}/>
+                    <UserStamp stamp={state}/>
                 </div>}
             </form> : <h1 className="center">Connect Wallet</h1>}
         </div>

@@ -1,12 +1,8 @@
-import logo from './logo.png';
+import logo from '../images/logo.png';
 import React, { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
 import { useWeb3React } from "@web3-react/core";
 import { InjectedConnector } from "@web3-react/injected-connector";
-import './components.css';
-import LetterBoxingABI from "./LetterBoxing.json";
-import MyStamp from "./MyStamp";
-import * as  constants from './constants.js';
+import '../components.css';
 
 export const injected = new InjectedConnector();
 function Home() {

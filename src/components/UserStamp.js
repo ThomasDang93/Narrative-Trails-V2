@@ -1,8 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Card, CardImg, CardText, CardBody,
   CardTitle, Button } from 'reactstrap';
-function MyStamp ({ stamp }) {
-  
+function UserStamp ({ stamp }) {
   return (
     <div>
         {stamp.stampList.length > 0 ? 
@@ -30,4 +29,4 @@ function MyStamp ({ stamp }) {
   );
 }
  
-export default MyStamp;
+export default UserStamp;

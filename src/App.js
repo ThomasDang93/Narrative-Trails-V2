@@ -4,11 +4,10 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import MintLetterBox from './components/MintLetterBox';
 import MintStamp from './components/MintStamp';
 import Home from './components/Home';
-import MyCollection from './components/MyCollection';
+import UsersCollection from './components/UsersCollection';
 import FindLetterbox from './components/FindLetterbox';
 import LetterBoxDetails from './components/LetterBoxDetails.js';
-import StampDetails from './components/StampDetails.js'
-import ConnectWallet from './components/ConnectWallet.js'
+import StampDetails from './components/StampDetails.js';
 import MetamaskProvider from './components/MetamaskProvider.js';
 import { Web3ReactProvider } from "@web3-react/core";
 import { Web3Provider } from "@ethersproject/providers";
@@ -66,9 +65,8 @@ export default class App extends Component {
               <Route path="/" element={Home} /> 
               <Route path='/plant-letter-box' element={MintLetterBox} /> 
               <Route path='/make-a-stamp-and-hunt' element={MintStamp} />
-              <Route path='/my-collection' element={MyCollection} />
+              <Route path='/my-collection' element={UsersCollection} />
               <Route path='/letterbox/:id' element={LetterBoxDetails} />
-              <Route path='/connect' element={ConnectWallet} />
               <Route path='/stamp/:id' element={StampDetails} />
               <Route path='/find-letterbox' element={FindLetterbox} />
           </Routes>

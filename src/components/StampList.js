@@ -1,4 +1,4 @@
-import './components.css';
+import '../components.css';
 import { Card, CardImg} from 'reactstrap';
 function StampList ({ stampList }) {
   return (

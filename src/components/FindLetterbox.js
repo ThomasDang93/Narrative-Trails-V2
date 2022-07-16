@@ -3,9 +3,9 @@ import { ethers } from 'ethers';
 import { useWeb3React } from "@web3-react/core";
 import { InjectedConnector } from "@web3-react/injected-connector";
 import LetterBoxList from './LetterBoxList';
-import './components.css';
-import LetterBoxingABI from "./LetterBoxing.json";
-import * as  constants from './constants.js';
+import '../components.css';
+import LetterBoxingABI from "../util/LetterBoxing.json";
+import * as  constants from '../util/constants.js';
 
 const DEPLOYED_CONTRACT_ADDRESS = constants.DEPLOYED_CONTRACT_ADDRESS;
 
@@ -40,8 +40,7 @@ function FindLetterbox() {
       }
 
     async function getNFTs() {
-        const contract = connectContract();
-
+        const contract = new ethers.Contract(DEPLOYED_CONTRACT_ADDRESS, LetterBoxingABI["abi"], provider.getSigner());
         //get letterboxes
         let allLetterboxes = await contract.letterboxList(); //array of tokenIds
         let letterBoxList = [];
@@ -83,13 +82,6 @@ function FindLetterbox() {
           setHasMetamask(true);
         }
       });
-
-      function connectContract() {
-        const signer = provider.getSigner();
-        const contractAddress = DEPLOYED_CONTRACT_ADDRESS;
-        const contract = new ethers.Contract(contractAddress, LetterBoxingABI["abi"], signer);
-        return contract;
-      }
       
     
     return (
